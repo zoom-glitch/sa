@@ -1,0 +1,292 @@
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>منصة الفيديو</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #1f1f1f;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header .material-icons {
+            cursor: pointer;
+            font-size: 28px;
+        }
+        .upload-section, .video-feed, .video-player {
+            padding: 20px;
+        }
+        .upload-section {
+            display: none;
+        }
+        .upload-section input, .upload-section button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+        }
+        
+.video-feed {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 20px;
+}
+@media (max-width: 768px) {
+    .video-feed {
+        grid-template-columns: 1fr;
+    }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+    .video-feed {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 768px) {
+    .video-feed {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 20px;
+}
+@media (max-width: 768px) {
+    .video-feed {
+        grid-template-columns: 1fr;
+    }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+    .video-feed {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+    .video-feed {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 20px;
+}
+@media (max-width: 768px) {
+    .video-feed {
+        grid-template-columns: 1fr;
+    }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+    .video-feed {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+}
+
+        .video-card {
+            background-color: #1e1e1e;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .video-card video {
+            width: 100%;
+            border-radius: 10px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+        .video-info h3 {
+            margin: 10px 0 5px 0;
+        }
+        .video-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+        .video-player {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            z-index: 1000;
+            padding: 40px 20px;
+            box-sizing: border-box;
+        }
+        .video-player video {
+            width: 100%;
+            max-height: 60vh;
+        }
+        .video-player .controls {
+            margin-top: 20px;
+        }
+        .comments-section {
+            margin-top: 20px;
+        }
+        .comments-section input, .comments-section button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <span class="material-icons" onclick="showHome()">home</span>
+        <span class="material-icons" onclick="showUpload()">add</span>
+    </header>
+
+    <div class="upload-section" id="uploadSection">
+        <form id="uploadForm">
+            <input type="text" placeholder="عنوان الفيديو" required />
+            <input type="url" placeholder="رابط الفيديو" required />
+            <button type="submit">رفع الفيديو</button>
+        </form>
+    </div>
+
+    <div class="video-feed" id="videoFeed"></div>
+
+    <div class="video-player" id="videoPlayer">
+        <video id="mainVideo" controls></video>
+        <div class="controls">
+            <button onclick="likeVideo()">أعجبني</button>
+            <button onclick="toggleComments()">تعليقات</button>
+            <button onclick="closePlayer()">إغلاق</button>
+        </div>
+        <div class="comments-section" id="commentsSection" style="display: none;">
+            <input type="text" id="commentInput" placeholder="أضف تعليقاً...">
+            <button onclick="submitComment()">إرسال</button>
+            <div id="commentsList"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.11.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAjE-2q6PONBkCin9ZN22gDp9Q8pAH9ZW8",
+            authDomain: "story-97cf7.firebaseapp.com",
+            projectId: "story-97cf7",
+            storageBucket: "story-97cf7.appspot.com",
+            messagingSenderId: "742801388214",
+            appId: "1:742801388214:web:32a305a8057b0582c5ec17"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const videosCollection = collection(db, 'videos');
+
+        let currentVideoId = null;
+        let videos = [];
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = e.target.elements[0].value;
+            const url = e.target.elements[1].value;
+
+            await addDoc(videosCollection, {
+                title,
+                url,
+                likes: 0,
+                views: 0,
+                timestamp: new Date()
+            });
+
+            e.target.reset();
+            showHome();
+        });
+
+        async function loadVideos() {
+            const snapshot = await getDocs(videosCollection);
+            videos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            displayVideos();
+        }
+
+        function displayVideos() {
+            const container = document.getElementById('videoFeed');
+            container.innerHTML = "";
+            videos.forEach(video => {
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.innerHTML = `
+                    <video 
+                        src="${video.url}" 
+                        muted 
+                        autoplay 
+                        loop 
+                        playsinline 
+                        onclick="openVideo('${video.id}')"
+                    ></video>
+                    <div class="video-info">
+                        <h3>${video.title}</h3>
+                        <div class="video-stats">
+                            <span>مشاهدات: ${video.views}</span>
+                            <span>إعجابات: ${video.likes}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        window.openVideo = async (id) => {
+            currentVideoId = id;
+            const video = videos.find(v => v.id === id);
+            const videoEl = document.getElementById('mainVideo');
+            videoEl.src = video.url;
+
+            await updateDoc(doc(db, 'videos', id), { views: video.views + 1 });
+
+            document.getElementById('videoPlayer').style.display = 'block';
+        }
+
+        window.closePlayer = () => {
+            document.getElementById('videoPlayer').style.display = 'none';
+        }
+
+        window.likeVideo = async () => {
+            if (!currentVideoId) return;
+            const video = videos.find(v => v.id === currentVideoId);
+            await updateDoc(doc(db, 'videos', currentVideoId), { likes: video.likes + 1 });
+            showHome();
+        }
+
+        window.toggleComments = () => {
+            const section = document.getElementById('commentsSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+        }
+
+        window.submitComment = () => {
+            const input = document.getElementById('commentInput');
+            const comment = document.createElement('div');
+            comment.textContent = input.value;
+            document.getElementById('commentsList').appendChild(comment);
+            input.value = "";
+        }
+
+        window.showHome = () => {
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('videoFeed').style.display = 'grid';
+            document.getElementById('videoPlayer').style.display = 'none';
+            loadVideos();
+        }
+
+        window.showUpload = () => {
+            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('videoFeed').style.display = 'none';
+        }
+
+        showHome();
+    </script>
+</body>
+</html>
